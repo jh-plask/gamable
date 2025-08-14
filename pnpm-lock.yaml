@@ -64,6 +64,12 @@ importers:
         specifier: ^5.9.2
         version: 5.9.2
 
+  packages/ecs:
+    dependencies:
+      '@babylonjs/core':
+        specifier: ^8.23.0
+        version: 8.23.0
+
   packages/eslint-config:
     devDependencies:
       '@next/eslint-plugin-next':
@@ -179,6 +185,9 @@ packages:
   '@babel/runtime-corejs3@7.28.2':
     resolution: {integrity: sha512-FVFaVs2/dZgD3Y9ZD+AKNKjyGKzwu0C54laAXWUXgLcVXcCX6YZ6GhK2cp7FogSN2OA0Fu+QT8dP3FUdo9ShSQ==}
     engines: {node: '>=6.9.0'}
+
+  '@babylonjs/core@8.23.0':
+    resolution: {integrity: sha512-PUW8DgR0yPcdaWh+pLtJ0IuCEMSIvmvRKJMp7Ia/nF8xGxM9mY6W8i/cyGjv/w0WAO3W3oZ0xoZFGbRNG7ytwg==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -2413,6 +2422,8 @@ snapshots:
   '@babel/runtime-corejs3@7.28.2':
     dependencies:
       core-js-pure: 3.45.0
+
+  '@babylonjs/core@8.23.0': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

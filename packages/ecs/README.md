@@ -21,5 +21,5 @@
 ### 6. **Colyseus -> Party Kit ***
 - ...
 
-### 7. **World only expose `on`, `spawn`, `kill`**
+### 7. **World only expose `on`, `spawn`, `kill`, `end`**
 - ...

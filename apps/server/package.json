@@ -1,0 +1,21 @@
+{
+  "name": "server",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "partykit dev --live",
+    "deploy": "partykit deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ecs": "workspace:*",
+    "partysocket": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*",
+    "partykit": "^0.0.110",
+    "typescript": "^5.5.4"
+  }
+}

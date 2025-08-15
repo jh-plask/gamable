@@ -23,6 +23,11 @@ import {
   Look,
   SerializedLook,
 } from "./look";
+import {
+  mesh,
+  MeshComponent,
+  SerializedMesh,
+} from "./mesh";
 
 export const components = {
   transform,
@@ -30,6 +35,7 @@ export const components = {
   state,
   control,
   look,
+  mesh,
 } as const;
 
 export type Components = {
@@ -38,6 +44,7 @@ export type Components = {
   state: State;
   control: Control;
   look: Look;
+  mesh: MeshComponent;
 };
 
 export type SerializedComponents = {
@@ -46,4 +53,5 @@ export type SerializedComponents = {
   state: SerializedState;
   control: SerializedControl;
   look: SerializedLook;
+  mesh: SerializedMesh;
 };

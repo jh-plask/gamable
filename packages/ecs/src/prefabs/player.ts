@@ -1,4 +1,5 @@
 import { Prefab } from "./base";
+import { stateSystemConfig } from "../systems/state.config";
 
 export const player: Prefab = {
   transform: {
@@ -8,12 +9,9 @@ export const player: Prefab = {
       z: 0,
     },
   },
-  physics: {
-    shape: {
-      type: "capsule",
-      start: [0, 0, 0],
-      end: [0, 0, 0],
-      radius: 0.5,
-    },
+  mesh: { type: "box", size: 1 },
+  state: {
+    ...stateSystemConfig.defaultState,
   },
+  physics: { motionType: "dynamic", mass: 1 },
 };

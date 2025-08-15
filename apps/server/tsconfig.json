@@ -1,0 +1,20 @@
+{
+  "extends": "@workspace/typescript-config/base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "target": "ES2022",
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true
+  },
+  "include": [
+    "src/**/*",
+    "partykit.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "public"
+  ]
+}

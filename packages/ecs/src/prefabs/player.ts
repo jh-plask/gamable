@@ -1,5 +1,5 @@
 import { Prefab } from "./base";
-import { stateSystemConfig } from "../systems/state.config";
+import { stateSystemConfig } from "../../../../apps/web/lib/services/input.config";
 
 export const player: Prefab = {
   transform: {
@@ -9,7 +9,7 @@ export const player: Prefab = {
       z: 0,
     },
   },
-  mesh: { type: "box", size: 1 },
+  mesh: { type: "box" },
   state: {
     ...stateSystemConfig.defaultState,
   },

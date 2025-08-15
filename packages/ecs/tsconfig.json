@@ -6,6 +6,6 @@
       "@workspace/ecs/*": ["./src/*"]
     }
   },
-  "include": ["."],
+  "include": [".", "../../apps/web/lib/services/input.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

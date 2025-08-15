@@ -1,283 +1,188 @@
-import { PrefabName, prefabs } from "../prefabs";
-import {
-  Components,
-  components,
-} from "../components";
 import { Scene } from "@babylonjs/core";
-import {
-  Archetype,
-  ArchetypeId,
-  ComponentIdMap,
-  createArchetype,
-  createArchetypeId,
-  addEntityToArchetype,
-  removeEntityFromArchetype,
-  archetypeMatches,
-} from "./archetype";
-import { EntityRegistry } from "./entity";
-import { SystemRegistry } from "./system-registry";
-import { System } from "../systems/base";
+import { systems } from "../systems";
+import { components as componentRegistry } from "../components";
+import type {
+  Components,
+  SerializedComponents,
+} from "../components";
+import type { Services } from "../services/types";
 
-export type IWorld = {
-  spawn: (prefab: PrefabName) => number;
-  kill: (entity: number) => void;
-  query: <K extends Array<keyof Components>>(
-    components: K
-  ) => {
-    [J in K[number]]: Components[J];
-  }[];
-  registerSystem: (
-    name: string,
-    components: (keyof Components)[]
-  ) => void;
-  getArchetypesForSystem: (
-    systemName: string
-  ) => Archetype[];
+type EntityId = number;
+
+type EntityRecord = {
+  id: EntityId;
+  components: Partial<Components>;
 };
 
-export class World implements IWorld {
-  private entityRegistry = new EntityRegistry();
-  private archetypes = new Map<
-    ArchetypeId,
-    Archetype
+export class World {
+  private nextEntityId: number = 0;
+  private entities = new Map<
+    EntityId,
+    EntityRecord
   >();
-  private systemRegistry: SystemRegistry;
-  private componentIdMap: ComponentIdMap;
-  private scene: Scene;
+  private systemInstances: Array<
+    ReturnType<
+      (typeof systems)[keyof typeof systems]
+    >
+  > = [];
 
-  constructor(scene: Scene) {
-    this.scene = scene;
-
-    // Create component ID mapping
-    this.componentIdMap = {} as ComponentIdMap;
-    let index = 0;
-    for (const key of Object.keys(
-      components
-    ) as (keyof Components)[]) {
-      this.componentIdMap[key] = index++;
-    }
-
-    this.systemRegistry = new SystemRegistry(
-      this.componentIdMap
-    );
-  }
-
-  spawn(prefabName: PrefabName): number {
-    const prefab = prefabs[prefabName];
-    const entityId =
-      this.entityRegistry.createEntity();
-
-    // Get components from prefab
-    const prefabComponents = Object.keys(
-      prefab
-    ) as (keyof Components)[];
-    const archetypeId = createArchetypeId(
-      prefabComponents,
-      this.componentIdMap
-    );
-
-    // Get or create archetype
-    let archetype =
-      this.archetypes.get(archetypeId);
-    if (!archetype) {
-      archetype = createArchetype(
-        archetypeId,
-        prefabComponents
+  constructor(
+    private readonly scene: Scene,
+    private services: Services = {}
+  ) {
+    // Instantiate all systems
+    for (const factory of Object.values(
+      systems
+    )) {
+      // query param is not used by our systems; they'll declare deps in the returned object
+      const instance = (factory as any)(
+        scene,
+        []
       );
-      this.archetypes.set(archetypeId, archetype);
+      this.systemInstances.push(instance);
     }
-
-    // Create component instances
-    const componentInstances: Partial<Components> =
-      {};
-    for (const componentName of prefabComponents) {
-      const componentDef =
-        components[componentName];
-      const serialized = prefab[componentName];
-      if (serialized && componentDef) {
-        // Get dependencies
-        const deps: any = {};
-        for (const dep of componentDef.deps ||
-          []) {
-          if (componentInstances[dep]) {
-            deps[dep] = componentInstances[dep];
-          }
-        }
-
-        componentInstances[componentName] =
-          componentDef.create(
-            entityId,
-            serialized as any,
-            this.scene,
-            deps
-          ) as any;
-      }
-    }
-
-    // Add entity to archetype
-    addEntityToArchetype(
-      archetype,
-      entityId,
-      componentInstances
-    );
-    this.entityRegistry.setEntityArchetype(
-      entityId,
-      archetypeId,
-      prefabComponents
-    );
-
-    return entityId;
   }
 
-  kill(entityId: number): void {
-    const entity =
-      this.entityRegistry.getEntity(entityId);
-    if (!entity) return;
+  spawn(
+    serialized: Partial<SerializedComponents>
+  ): EntityId {
+    const id = this.nextEntityId++;
+    const created: Partial<Components> = {};
 
-    const archetype = this.archetypes.get(
-      entity.archetypeId
-    );
-    if (archetype) {
-      // Call delete on components
-      const index =
-        archetype.entityToIndex.get(entityId);
-      if (index !== undefined) {
-        for (const [
-          componentName,
-          array,
-        ] of Object.entries(
-          archetype.componentArrays
-        )) {
-          if (array && array[index]) {
-            const componentDef =
-              components[
-                componentName as keyof Components
-              ];
-            if (
-              componentDef &&
-              componentDef.delete
-            ) {
-              // Get dependencies
-              const deps: any = {};
-              for (const dep of componentDef.deps ||
-                []) {
-                const depArray =
-                  archetype.componentArrays[dep];
-                if (depArray && depArray[index]) {
-                  deps[dep] = depArray[index];
-                }
-              }
-
-              componentDef.delete(
-                array[index] as any,
-                deps
-              );
-            }
-          }
-        }
-      }
-
-      removeEntityFromArchetype(
-        archetype,
-        entityId
-      );
-    }
-
-    this.entityRegistry.deleteEntity(entityId);
-  }
-
-  query<K extends Array<keyof Components>>(
-    requiredComponents: K
-  ): {
-    [J in K[number]]: Components[J];
-  }[] {
-    const results: any[] = [];
-
-    // Check all archetypes
-    for (const archetype of this.archetypes.values()) {
-      if (
-        archetypeMatches(
-          archetype,
-          requiredComponents
-        )
-      ) {
-        // Create result objects for this archetype
-        for (
-          let i = 0;
-          i < archetype.entities.length;
-          i++
-        ) {
-          const entity: any = {};
-
-          for (const component of requiredComponents) {
-            const array =
-              archetype.componentArrays[
-                component
-              ];
-            if (array) {
-              entity[component] = array[i];
-            }
-          }
-
-          results.push(entity);
-        }
-      }
-    }
-
-    return results;
-  }
-
-  registerSystem(
-    name: string,
-    components: (keyof Components)[]
-  ): void {
-    this.systemRegistry.registerSystem(
-      name,
-      components
+    // Create components honoring dependencies by iterating until all resolvable are created
+    const pending = new Set<
+      keyof SerializedComponents
+    >(
+      Object.keys(
+        serialized
+      ) as (keyof SerializedComponents)[]
     );
 
-    // Precompute archetypes based on system requirements
-    const archetypeIds =
-      this.systemRegistry.getAllArchetypeIds();
-    for (const id of archetypeIds) {
-      if (!this.archetypes.has(id)) {
-        // Determine which components this archetype should have
-        const componentList: (keyof Components)[] =
-          [];
-        for (const [
-          compName,
-          bitIndex,
-        ] of Object.entries(
-          this.componentIdMap
-        )) {
-          if (id & (1 << bitIndex)) {
-            componentList.push(
-              compName as keyof Components
-            );
-          }
+    let progressed = true;
+    while (pending.size && progressed) {
+      progressed = false;
+      for (const key of Array.from(pending)) {
+        const factory = (
+          componentRegistry as any
+        )[key];
+        if (!factory) {
+          pending.delete(key);
+          continue;
         }
-
-        const archetype = createArchetype(
-          id,
-          componentList
+        const deps: (keyof Components)[] =
+          factory.deps ?? [];
+        const hasAllDeps = deps.every(
+          (d) => created[d] !== undefined
         );
-        this.archetypes.set(id, archetype);
+        if (!hasAllDeps) continue;
+        const depObjects: any = {};
+        for (const d of deps)
+          depObjects[d] = created[d]!;
+        const instance = factory.create(
+          id,
+          (serialized as any)[key],
+          this.scene,
+          depObjects
+        );
+        (created as any)[key] = instance;
+        pending.delete(key);
+        progressed = true;
       }
+    }
+
+    if (pending.size) {
+      throw new Error(
+        `Unresolved component dependencies for entity ${id}: ${Array.from(pending).join(", ")}`
+      );
+    }
+
+    this.entities.set(id, {
+      id,
+      components: created,
+    });
+    return id;
+  }
+
+  update(): void {
+    const deltaMs = this.scene
+      .getEngine()
+      .getDeltaTime();
+
+    for (const service of Object.values(
+      this.services
+    )) {
+      service.update(this.entities);
+    }
+
+    // Build per-system entity views based on declared deps
+    for (const system of this.systemInstances) {
+      const deps =
+        system.deps as (keyof Components)[];
+      const view: any[] = [];
+      for (const {
+        components,
+      } of this.entities.values()) {
+        let ok = true;
+        for (const d of deps)
+          if (!(d in components)) {
+            ok = false;
+            break;
+          }
+        if (!ok) continue;
+        const row: any = {};
+        for (const d of deps)
+          row[d] = (components as any)[d];
+        view.push(row);
+      }
+      system.update(view, this.services);
     }
   }
 
-  getArchetypesForSystem(
-    systemName: string
-  ): Archetype[] {
-    const archetypeIds =
-      this.systemRegistry.getArchetypesForSystem(
-        systemName
-      );
-    return archetypeIds
-      .map((id) => this.archetypes.get(id))
-      .filter(
-        (arch): arch is Archetype =>
-          arch !== undefined
-      );
+  destroyEntity(id: EntityId): void {
+    const record = this.entities.get(id);
+    if (!record) return;
+    // Call delete hooks in reverse dep order best-effort
+    const keys = Object.keys(
+      record.components
+    ) as (keyof Components)[];
+    for (const key of keys) {
+      const factory = (componentRegistry as any)[
+        key
+      ];
+      if (factory?.delete) {
+        factory.delete(
+          (record.components as any)[key],
+          record.components
+        );
+      }
+    }
+    this.entities.delete(id);
+  }
+
+  // Allow external services to iterate entities with specific components
+  forEach<K extends Array<keyof Components>>(
+    deps: K,
+    cb: (row: {
+      [J in K[number]]: Components[J];
+    }) => void
+  ): void {
+    const required = new Set<keyof Components>(
+      deps
+    );
+    for (const {
+      components,
+    } of this.entities.values()) {
+      let ok = true;
+      for (const d of required)
+        if (!(d in components)) {
+          ok = false;
+          break;
+        }
+      if (!ok) continue;
+      const row: any = {};
+      for (const d of required)
+        row[d] = (components as any)[d];
+      cb(row);
+    }
   }
 }

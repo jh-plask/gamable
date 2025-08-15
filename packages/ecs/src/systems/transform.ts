@@ -2,9 +2,8 @@ import { System } from "./base";
 import { Vector3 } from "@babylonjs/core";
 
 export const transform: System<
-  ["transform", "state", "look"],
-  []
-> = (scene, query, deps) => {
+  ["transform", "state", "look"]
+> = (scene, query) => {
   return {
     update: (entities) => {
       const now = scene
@@ -16,7 +15,9 @@ export const transform: System<
         look,
       } of entities) {
         const { transformNode } = transform;
-        const { current, timeInStateMs } = state;
+        const current = state.currentLocomotion;
+        const timeInStateMs =
+          state.timeInLocomotionMs;
         const { camera } = look;
 
         // Example: small bobbing effect when walking or running

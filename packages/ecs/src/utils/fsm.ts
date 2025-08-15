@@ -1,29 +1,19 @@
 export type StateId = string;
-export type EventId = string;
 
 export type TransitionRule<
   S extends StateId,
-  E extends EventId,
   C,
 > = {
   from: S;
   to: S | ((context: C, from: S) => S);
-  event?: E;
-  guard?: (
-    context: C,
-    from: S,
-    event?: E
-  ) => boolean;
+
+  guard?: (context: C, from: S) => boolean;
   afterMs?: number;
 };
 
-export type FSMConfig<
-  S extends StateId,
-  E extends EventId,
-  C,
-> = {
+export type FSMConfig<S extends StateId, C> = {
   initial: S;
-  transitions: TransitionRule<S, E, C>[];
+  transitions: TransitionRule<S, C>[];
   onEnter?: Partial<
     Record<
       S,
@@ -37,21 +27,18 @@ export type FSMConfig<
 
 export class FiniteStateMachine<
   S extends StateId,
-  E extends EventId,
   C,
 > {
   private readonly transitionsByFrom = new Map<
     S,
-    TransitionRule<S, E, C>[]
+    TransitionRule<S, C>[]
   >();
   private readonly onEnter?: FSMConfig<
     S,
-    E,
     C
   >["onEnter"];
   private readonly onExit?: FSMConfig<
     S,
-    E,
     C
   >["onExit"];
 
@@ -60,7 +47,7 @@ export class FiniteStateMachine<
   timeInStateMs = 0;
 
   constructor(
-    private readonly config: FSMConfig<S, E, C>
+    private readonly config: FSMConfig<S, C>
   ) {
     this.state = config.initial;
     this.onEnter = config.onEnter;
@@ -94,30 +81,85 @@ export class FiniteStateMachine<
         !rule.guard(context, this.state)
       )
         continue;
-      this.transition(rule, undefined, context);
+      this.transition(rule, context);
       break;
     }
   }
 
-  dispatch(event: E, context: C): void {
+  dispatch(context: C): void {
     const rules =
       this.transitionsByFrom.get(this.state) ||
       [];
     for (const rule of rules) {
-      if (rule.event !== event) continue;
       if (
         rule.guard &&
-        !rule.guard(context, this.state, event)
+        !rule.guard(context, this.state)
       )
         continue;
-      this.transition(rule, event, context);
+      this.transition(rule, context);
       break;
     }
   }
 
+  canTransition(target: S, context: C): boolean {
+    const rules =
+      this.transitionsByFrom.get(this.state) ||
+      [];
+    for (const rule of rules) {
+      const to: S =
+        typeof rule.to === "function"
+          ? (rule.to as (c: C, f: S) => S)(
+              context,
+              this.state
+            )
+          : (rule.to as S);
+      if (to !== target) continue;
+      if (
+        rule.afterMs !== undefined &&
+        this.timeInStateMs < rule.afterMs
+      )
+        continue;
+      if (
+        rule.guard &&
+        !rule.guard(context, this.state)
+      )
+        continue;
+      return true;
+    }
+    return false;
+  }
+
+  tryTransition(target: S, context: C): boolean {
+    const rules =
+      this.transitionsByFrom.get(this.state) ||
+      [];
+    for (const rule of rules) {
+      const to: S =
+        typeof rule.to === "function"
+          ? (rule.to as (c: C, f: S) => S)(
+              context,
+              this.state
+            )
+          : (rule.to as S);
+      if (to !== target) continue;
+      if (
+        rule.afterMs !== undefined &&
+        this.timeInStateMs < rule.afterMs
+      )
+        continue;
+      if (
+        rule.guard &&
+        !rule.guard(context, this.state)
+      )
+        continue;
+      this.transition(rule, context);
+      return true;
+    }
+    return false;
+  }
+
   private transition(
-    rule: TransitionRule<S, E, C>,
-    event: E | undefined,
+    rule: TransitionRule<S, C>,
     context: C
   ): void {
     const from = this.state;

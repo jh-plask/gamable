@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@babylonjs/core": "^8.23.0",
+    "@babylonjs/inspector": "^8.23.1",
     "@workspace/ui": "workspace:*",
     "ecs": "workspace:*",
     "lucide-react": "^0.475.0",
